@@ -446,7 +446,7 @@ type = "report"
 Return ONLY JSON matching the supplied JSON schema.
 """
 
-YCHAT_PROMPT = """
+CHAT_PROMPT = """
 You are the Health Assistant inside a personal HealthTech application.
 
 You are a health-information assistant, not a doctor or clinician.
