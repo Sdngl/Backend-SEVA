@@ -1,26 +1,30 @@
 from dataclasses import dataclass
 
-import firebase_admin
-
 from firebase_admin import (
     auth,
     firestore,
 )
-
-from django.conf import settings
 
 from rest_framework.authentication import (
     BaseAuthentication,
     get_authorization_header,
 )
 
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import (
+    AuthenticationFailed,
+    APIException,
+)
+
+from .firebase_config import initialize_firebase
 
 
 @dataclass
 class FirebaseUser:
+
     uid: str
+
     email: str | None = None
+
     is_authenticated: bool = True
 
     @property
@@ -29,32 +33,23 @@ class FirebaseUser:
 
 
 def _ensure_app():
-    if firebase_admin._apps:
-        return
-
-    options = (
-        {
-            "projectId": settings.FIREBASE_PROJECT_ID,
-        }
-        if settings.FIREBASE_PROJECT_ID
-        else None
-    )
-
-    firebase_admin.initialize_app(
-        options=options,
-    )
+    return initialize_firebase()
 
 
 def get_firestore_client():
-    _ensure_app()
+    app = _ensure_app()
 
-    return firestore.client()
+    return firestore.client(
+        app=app
+    )
 
 
 class FirebaseAuthentication(BaseAuthentication):
+
     keyword = b"Bearer"
 
     def authenticate(self, request):
+
         header = get_authorization_header(
             request
         ).split()
@@ -66,15 +61,39 @@ class FirebaseAuthentication(BaseAuthentication):
             len(header) != 2
             or header[0].lower() != b"bearer"
         ):
+
             raise AuthenticationFailed(
                 "Malformed Authorization header."
             )
 
         try:
-            _ensure_app()
+
+            token = header[1].decode(
+                "utf-8"
+            )
+
+        except UnicodeDecodeError:
+
+            raise AuthenticationFailed(
+                "Invalid Authorization header."
+            )
+
+        try:
+
+            app = _ensure_app()
+
+        except Exception:
+
+            raise APIException(
+                "Firebase authentication service "
+                "is not configured correctly."
+            )
+
+        try:
 
             decoded = auth.verify_id_token(
-                header[1].decode("utf-8"),
+                token,
+                app=app,
                 check_revoked=False,
             )
 
@@ -85,6 +104,7 @@ class FirebaseAuthentication(BaseAuthentication):
             auth.RevokedIdTokenError,
             auth.CertificateFetchError,
         ):
+
             raise AuthenticationFailed(
                 "Invalid or expired Firebase ID token."
             )
@@ -95,6 +115,7 @@ class FirebaseAuthentication(BaseAuthentication):
         )
 
         if not uid:
+
             raise AuthenticationFailed(
                 "Firebase token does not contain a UID."
             )
@@ -111,4 +132,5 @@ class FirebaseAuthentication(BaseAuthentication):
         self,
         request,
     ):
+
         return "Bearer"
