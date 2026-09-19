@@ -1,0 +1,8 @@
+Django==6.1.1
+djangorestframework==3.18.1
+django-cors-headers>=4.7,<5
+firebase-admin>=7.0,<8
+google-genai>=1.0,<2
+python-dotenv>=1.0,<2
+Pillow>=11.0,<13
+drf-spectacular>=0.28,<1
